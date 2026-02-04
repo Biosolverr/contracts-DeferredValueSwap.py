@@ -1,7 +1,13 @@
-Most escrow examples in the EVM world quickly turn into a small zoo of moving parts: a Solidity escrow contract, one or more ERC‑20/721 tokens, off‑chain services, and an oracle layer that tells the chain what happened in the real world. Getting all of that right requires solid Solidity skills, custom infrastructure, and a lot of glue code just to answer simple questions like “who is right in this dispute?” or “did the conditions actually happen?”. Traditional smart contracts are also “blind” by design: they can’t read the web or interpret natural‑language evidence without those external oracle systems. (docs.genlayer.com medium.com)
-GenLayer’s Intelligent Contracts remove a lot of this complexity. You write the whole escrow lifecycle in Python, inside a single contract, and you can plug in AI‑based dispute resolution and web data access directly through GenLayer’s non‑deterministic operations—without maintaining separate oracle infrastructure. The same engine that holds the funds can read structured and unstructured evidence, run it through LLMs, and reach a verifiable, on‑chain decision through Optimistic Democracy consensus. In practice, this means you can build an end‑to‑end escrow with subjective arbitration as one readable Python file, instead of a fragmented Solidity + oracles architecture. (genlayer.com docs.genlayer.com)
-Building an AI‑Powered Escrow Intelligent Contract on GenLayer
-This tutorial walks through a complete escrow‑style Intelligent Contract for GenLayer, step by step.
+Most escrow examples in the EVM world quickly turn into a small zoo of moving parts: a Solidity escrow contract, one or more ERC‑20/721 tokens, off‑chain services, 
+and an oracle layer that tells the chain what happened in the real world. Getting all of that right requires solid Solidity skills, custom infrastructure, 
+and a lot of glue code just to answer simple questions like “who is right in this dispute?” or “did the conditions actually happen?”. 
+Traditional smart contracts are also “blind” by design: they can’t read the web or interpret natural‑language evidence without those external oracle systems. (docs.genlayer.com medium.com)
+GenLayer’s Intelligent Contracts remove a lot of this complexity. You write the whole escrow lifecycle in Python, inside a single contract, 
+and you can plug in AI‑based dispute resolution and web data access directly through GenLayer’s non‑deterministic operations—without maintaining separate oracle infrastructure. 
+The same engine that holds the funds can read structured and unstructured evidence, run it through LLMs, and reach a verifiable, on‑chain decision through Optimistic Democracy consensus. 
+In practice, this means you can build an end‑to‑end escrow with subjective arbitration as one readable Python file, instead of a fragmented Solidity + oracles architecture. (genlayer.com docs.genlayer.com)
+Building an AI‑Powered Escrow Intelligent Contract on GenLayer This tutorial walks through a complete escrow‑style Intelligent Contract for GenLayer, step by step.
+
 We’ll:
 
 * lock native GEN in a deal between two parties,
@@ -825,4 +831,5 @@ From here you can:
 * plug it into a dApp frontend using the GenLayer JS/PY SDKs, (docs.genlayer.com)
 * or use it as a template for other escrow‑style workflows on GenLayer.
 
-This tutorial is intentionally focused on one concrete, realistic pattern: two‑party escrow with AI arbitration, so you can see how to combine standard contract logic with GenLayer’s Intelligent features in a way that actually maps to real‑world use cases.
+This tutorial is intentionally focused on one concrete, realistic pattern: two‑party escrow with AI arbitration, 
+so you can see how to combine standard contract logic with GenLayer’s Intelligent features in a way that actually maps to real‑world use cases.
