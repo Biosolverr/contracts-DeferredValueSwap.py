@@ -8,21 +8,10 @@ import json
 
 
 class DeferredValueSwap(gl.Contract):
-    """
-    Deferred-value token/deal contract on GenLayer:
-
-    - sender ↔ recipient
-    - lifecycle:
-        INACTIVE → ACTIVE → (FINAL_NFT | FINAL_STABLE | CANCELLED | DISPUTED)
-    - native GEN deposit at creation
-    - final outcome: release deposit to recipient (STABLE) or logical "NFT" finalization
-    - security: blacklist, limits, rate delay
-    - optional dispute: claim/challenge + AI arbitration
-    - simple reputation (XP / wins)
-    """
+    """AI-Powered Escrow on GenLayer (tutorial-complete)"""
 
     # =========================
-    # 1. STATE CONSTANTS
+    # 1) STATES
     # =========================
 
     def _STATE_INACTIVE(self) -> u256:
@@ -44,7 +33,7 @@ class DeferredValueSwap(gl.Contract):
         return u256(5)
 
     # =========================
-    # 2. DEAL STORAGE
+    # 2) STORAGE
     # =========================
 
     next_deal_id: u256
@@ -53,9 +42,9 @@ class DeferredValueSwap(gl.Contract):
     deal_recipient: TreeMap[u256, Address]
     deal_state: TreeMap[u256, u256]
 
-    deal_initial_value: TreeMap[u256, u256]     # nominal amount in GEN
-    deal_current_value: TreeMap[u256, u256]     # with multiplier applied
-    deal_deposit: TreeMap[u256, u256]           # how much GEN is actually locked
+    deal_initial_value: TreeMap[u256, u256]
+    deal_current_value: TreeMap[u256, u256]
+    deal_deposit: TreeMap[u256, u256]
 
     deal_created_at: TreeMap[u256, u256]
     deal_activated_at: TreeMap[u256, u256]
@@ -67,11 +56,8 @@ class DeferredValueSwap(gl.Contract):
     deal_offchain_ref: TreeMap[u256, str]
     deal_nft_metadata: TreeMap[u256, str]
 
-    # =========================
-    # 3. DISPUTES
-    # =========================
-
-    deal_dispute_open: TreeMap[u256, u256]       # 0/1
+    # Disputes
+    deal_dispute_open: TreeMap[u256, u256]
     deal_claim_by: TreeMap[u256, Address]
     deal_claim_reason: TreeMap[u256, str]
     deal_claim_opened_at: TreeMap[u256, u256]
@@ -80,49 +66,35 @@ class DeferredValueSwap(gl.Contract):
     deal_challenge_by: TreeMap[u256, Address]
     deal_challenge_reason: TreeMap[u256, str]
 
-    deal_resolution_mode: TreeMap[u256, u256]    # 0=none,1=owner_manual,2=ai_judge
+    deal_resolution_mode: TreeMap[u256, u256]  # 0=none,1=owner_manual,2=ai_judge
     deal_resolution_note: TreeMap[u256, str]
 
-    dispute_period_sec: u256                     # dispute window
+    dispute_period_sec: u256
 
-    # =========================
-    # 4. ECONOMICS / FEES
-    # =========================
+    # Economics
+    base_activation_fee: u256
+    global_value_multiplier_bps: u256
+    transform_fee_bps: u256
+    protocol_fees_collected: u256
 
-    base_activation_fee: u256                    # fee on deal creation
-    global_value_multiplier_bps: u256            # 10000 = 1.0x
-    transform_fee_bps: u256                      # fee on STABLE finalization, bps
-
-    protocol_fees_collected: u256                # how much GEN the protocol collected
-
-    # =========================
-    # 5. SECURITY
-    # =========================
-
-    blacklisted: TreeMap[Address, u256]          # 1 if blocked
-
-    max_deal_value: u256                         # cap for initial_value/deposit, 0 = no cap
-    min_delay_sec: u256                          # minimum delay between actions
+    # Security
+    blacklisted: TreeMap[Address, u256]
+    max_deal_value: u256
+    min_delay_sec: u256
     last_action_at: TreeMap[Address, u256]
 
-    default_activation_period_sec: u256          # default: how long to activate
-    default_finalization_period_sec: u256        # default: how long to finalize
+    default_activation_period_sec: u256
+    default_finalization_period_sec: u256
 
-    # =========================
-    # 6. REPUTATION
-    # =========================
-
+    # Reputation
     xp: TreeMap[Address, u256]
     wins: TreeMap[Address, u256]
 
-    # =========================
-    # 7. ADMIN
-    # =========================
-
+    # Admin
     owner: Address
 
     # =========================
-    # HELPER FUNCTIONS
+    # HELPERS
     # =========================
 
     def _now(self) -> u256:
@@ -163,10 +135,8 @@ class DeferredValueSwap(gl.Contract):
         me = gl.message.sender_address
         sender = self.deal_sender.get(deal_id)
         recipient = self.deal_recipient.get(deal_id)
-
         if sender is None:
             raise UserError("Unknown deal")
-
         if me != sender and me != recipient:
             raise UserError("Only sender or recipient")
 
@@ -175,6 +145,8 @@ class DeferredValueSwap(gl.Contract):
             return initial
         return (initial * self.global_value_multiplier_bps) // u256(10_000)
 
+    # NOTE: this is the same transfer helper as in the tutorial text.
+    # If payouts fail in your environment, the issue is usually the runtime transfer primitive.
     def _send_native(self, to: Address, amount: u256) -> None:
         if amount == u256(0):
             return
@@ -188,7 +160,7 @@ class DeferredValueSwap(gl.Contract):
         return json.loads(cleaned)
 
     # =========================
-    # 8. CONSTRUCTOR
+    # CONSTRUCTOR
     # =========================
 
     def __init__(self):
@@ -204,22 +176,18 @@ class DeferredValueSwap(gl.Contract):
         self.max_deal_value = u256(0)
         self.min_delay_sec = u256(0)
 
+        # Tutorial default is often 0; you can tune these later via set_timeouts().
         self.default_activation_period_sec = u256(0)
         self.default_finalization_period_sec = u256(0)
 
         self.dispute_period_sec = u256(0)
 
     # =========================
-    # 9. DEAL CREATION & ACTIVATION
+    # DEAL FLOW
     # =========================
 
     @gl.public.write.payable
-    def create_deal(
-        self,
-        recipient_hex: str,
-        value: int,
-        offchain_ref: str,
-    ) -> int:
+    def create_deal(self, recipient_hex: str, value: int, offchain_ref: str) -> int:
         sender = gl.message.sender_address
         self._not_blacklisted(sender)
         self._respect_delay(sender)
@@ -240,13 +208,11 @@ class DeferredValueSwap(gl.Contract):
         if sent != expected:
             raise UserError("Sent value must equal value + base_activation_fee")
 
-        deposit = v
         if fee > u256(0):
             self.protocol_fees_collected += fee
 
         deal_id = self.next_deal_id
         self.next_deal_id = deal_id + u256(1)
-
         now = self._now()
 
         self.deal_sender[deal_id] = sender
@@ -255,7 +221,7 @@ class DeferredValueSwap(gl.Contract):
 
         self.deal_initial_value[deal_id] = v
         self.deal_current_value[deal_id] = self._calc_value(v)
-        self.deal_deposit[deal_id] = deposit
+        self.deal_deposit[deal_id] = v
 
         self.deal_created_at[deal_id] = now
         self.deal_offchain_ref[deal_id] = offchain_ref
@@ -268,7 +234,6 @@ class DeferredValueSwap(gl.Contract):
         self.deal_finalization_deadline[deal_id] = u256(0)
 
         self.xp[sender] = self.xp.get(sender, u256(0)) + u256(1)
-
         return int(deal_id)
 
     @gl.public.write
@@ -299,7 +264,7 @@ class DeferredValueSwap(gl.Contract):
         self.xp[r] = self.xp.get(r, u256(0)) + u256(1)
 
     # =========================
-    # 10. CANCELLATION / EXPIRY
+    # CANCELLATION / EXPIRY
     # =========================
 
     @gl.public.write
@@ -351,7 +316,7 @@ class DeferredValueSwap(gl.Contract):
         self.deal_finalized_at[deal_id] = now
 
     # =========================
-    # 11. FINALIZATION: NFT / STABLE
+    # FINALIZATION
     # =========================
 
     @gl.public.write
@@ -393,19 +358,4 @@ class DeferredValueSwap(gl.Contract):
             raise UserError("Finalization deadline passed")
 
         deposit = self.deal_deposit.get(deal_id, u256(0))
-        if deposit == u256(0):
-            raise UserError("No deposit")
-
-        fee = (deposit * self.transform_fee_bps) // u256(10_000)
-        if fee > deposit:
-            fee = deposit
-
-        net = deposit - fee
-        if net == u256(0):
-            raise UserError("Net amount is zero")
-
-        recipient = self.deal_recipient[deal_id]
-
-        self.deal_state[deal_id] = self._STATE_FINAL_STABLE()
-        self.deal_finalized_at[deal_id] = self._now()
-        self.deal_current_value[deal_id]
+        if deposit ==
